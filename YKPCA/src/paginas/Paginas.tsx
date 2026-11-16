@@ -231,6 +231,10 @@ export function Perfil() {
  const navigate = useNavigate()
  const fileInputRef = useRef<HTMLInputElement | null>(null)
  const [usuario, setUsuario] = useState<Usuario | null>(null)
+ const [editandoPerfil, setEditandoPerfil] = useState(false)
+ const [nomeEditado, setNomeEditado] = useState('')
+ const [telefoneEditado, setTelefoneEditado] = useState('')
+ const [erroPerfil, setErroPerfil] = useState('')
 
  useEffect(() => {
    const atual = getUsuarioAtual()
@@ -244,24 +248,23 @@ export function Perfil() {
 
  function atualizarPerfil() {
    if (!usuario) return
-
-   const nome = window.prompt('Informe o novo nome:', usuario.nome)
-   const telefone = window.prompt('Informe o novo telefone:', usuario.telefone)
-
-   if (nome === null || telefone === null) return
-
-   const atualizado: Usuario = {
-     ...usuario,
-     nome: nome.trim() || usuario.nome,
-     telefone: telefone.trim() || usuario.telefone,
-   }
-
-   const usuarios = getUsuarios().map(item => item.email.toLowerCase() === usuario.email.toLowerCase() ? atualizado : item)
-   salvarUsuarios(usuarios)
-   salvarUsuarioAtual(atualizado)
-   setUsuario(atualizado)
+   setNomeEditado(usuario.nome)
+   setTelefoneEditado(usuario.telefone)
+   setErroPerfil('')
+   setEditandoPerfil(true)
  }
 
+ function salvarPerfil(e: React.FormEvent) {
+   e.preventDefault()
+   if (!usuario) return
+   if (nomeEditado.trim().length < 3) { setErroPerfil('Informe um nome com pelo menos 3 caracteres.'); return }
+   if (telefoneEditado.trim().length < 8) { setErroPerfil('Informe um telefone válido.'); return }
+   const atualizado: Usuario = { ...usuario, nome: nomeEditado.trim(), telefone: telefoneEditado.trim() }
+   salvarUsuarios(getUsuarios().map(item => item.email.toLowerCase() === usuario.email.toLowerCase() ? atualizado : item))
+   salvarUsuarioAtual(atualizado)
+   setUsuario(atualizado)
+   setEditandoPerfil(false)
+ }
  function exportarBackup() {
    const dados = JSON.stringify(getUsuarios(), null, 2)
    const blob = new Blob([dados], { type: 'application/json' })
@@ -338,6 +341,12 @@ export function Perfil() {
     <button type="button" className="btn-danger profile-danger" onClick={excluirConta}>Excluir conta e dados locais</button>
     <p className="profile-help">Seus dados ficam salvos neste navegador e neste dispositivo.</p>
    </section>
+   {editandoPerfil && <Modal titulo="Editar perfil" onClose={() => setEditandoPerfil(false)}><form onSubmit={salvarPerfil}>
+     <label>Nome completo<input value={nomeEditado} onChange={e => setNomeEditado(e.target.value)} required minLength={3} /></label>
+     <label>Telefone<input type="tel" value={telefoneEditado} onChange={e => setTelefoneEditado(e.target.value)} required /></label>
+     {erroPerfil && <p className="field-error" role="alert">{erroPerfil}</p>}
+     <div className="modal-actions"><button type="button" className="btn-secondary" onClick={() => setEditandoPerfil(false)}>Cancelar</button><button className="btn-primary">Salvar alterações</button></div>
+   </form></Modal>}
   </>
  )
 }
