@@ -5,6 +5,29 @@ import { validarLancamento } from '../dominio/financeiro'
 interface Props { inicial?: Lancamento; categorias: Categoria[]; onSave: (item: Omit<Lancamento, 'id'>) => void; onClose: () => void }
 const categoriasPadrao: Categoria[] = ['Alimentação', 'Moradia', 'Transporte', 'Lazer', 'Saúde', 'Educação', 'Salário', 'Investimentos', 'Outros']
 
+// Converte valores digitados em formato brasileiro ou internacional para centavos.
+function valorEmCentavos(entrada: string): number {
+  const limpo = entrada.trim().replace(/R\\$|\\s/g, '')
+  if (!limpo || !/^[0-9.,]+$/.test(limpo)) return NaN
+  const virgula = limpo.lastIndexOf(',')
+  const ponto = limpo.lastIndexOf('.')
+  let normalizado = limpo
+  if (virgula >= 0 && ponto >= 0) {
+    const decimal = Math.max(virgula, ponto)
+    const inteiro = limpo.slice(0, decimal).replace(/[.,]/g, '')
+    const fracao = limpo.slice(decimal + 1).replace(/[.,]/g, '')
+    if (!fracao || fracao.length > 2) return NaN
+    normalizado = inteiro + '.' + fracao
+  } else if (virgula >= 0 || ponto >= 0) {
+    const separador = virgula >= 0 ? ',' : '.'
+    const partes = limpo.split(separador)
+    if (partes.length > 2 || (partes[1] ?? '').length > 2) return NaN
+    normalizado = partes[0] + (partes.length === 2 ? '.' + partes[1] : '')
+  }
+  const numero = Number(normalizado)
+  return Number.isFinite(numero) ? Math.round(numero * 100) : NaN
+}
+
 export function FormLancamento({ inicial, categorias, onSave, onClose }: Props) {
   const opcoesCategorias = categorias.length ? categorias : categoriasPadrao
   const [descricao, setDescricao] = useState(inicial?.descricao ?? '')
@@ -19,8 +42,12 @@ export function FormLancamento({ inicial, categorias, onSave, onClose }: Props) 
 
   function submit(e: React.FormEvent) {
     e.preventDefault()
-    const numero = Number(valor.trim().replace(',', '.'))
-    const item = { descricao: descricao.trim(), tipo, categoria, valorCentavos: Math.round(numero * 100), data, observacao: observacao.trim() }
+    const valorCentavos = valorEmCentavos(valor)
+    if (!Number.isFinite(valorCentavos) || valorCentavos <= 0) {
+      setErro('Informe um valor válido maior que zero. Você pode usar vírgula ou ponto nos centavos, por exemplo: 125,50 ou 125.50.')
+      return
+    }
+    const item = { descricao: descricao.trim(), tipo, categoria, valorCentavos, data, observacao: observacao.trim() }
     const erros = validarLancamento(item)
     if (erros.length) { setErro(erros[0]); if (erros[0].toLowerCase().includes('descrição')) descricaoRef.current?.focus(); return }
     setErro('')
