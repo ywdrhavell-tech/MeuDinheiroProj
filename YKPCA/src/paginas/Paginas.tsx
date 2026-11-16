@@ -17,6 +17,29 @@ import { FormLancamento } from '../componentes/FormLancamento'
 const moeda=(n:number)=>(n/100).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
 const id=()=>crypto.randomUUID()
 
+// Aceita formatos brasileiros e internacionais: 1500,50 | 1500.50 | 1.500,50 | 1,500.50
+function valorEmCentavos(entrada: string): number {
+ const limpo = entrada.trim().replace(/R\$|\s/g, '')
+ if (!limpo || !/^[0-9.,]+$/.test(limpo)) return NaN
+ const virgula = limpo.lastIndexOf(',')
+ const ponto = limpo.lastIndexOf('.')
+ let normalizado = limpo
+ if (virgula >= 0 && ponto >= 0) {
+   const decimal = Math.max(virgula, ponto)
+   const inteiro = limpo.slice(0, decimal).replace(/[.,]/g, '')
+   const fracao = limpo.slice(decimal + 1).replace(/[.,]/g, '')
+   if (!fracao || fracao.length > 2) return NaN
+   normalizado = inteiro + '.' + fracao
+ } else if (virgula >= 0 || ponto >= 0) {
+   const separador = virgula >= 0 ? ',' : '.'
+   const partes = limpo.split(separador)
+   if (partes.length > 2 || (partes[1] ?? '').length > 2) return NaN
+   normalizado = partes[0] + (partes.length === 2 ? '.' + partes[1] : '')
+ }
+ const numero = Number(normalizado)
+ return Number.isFinite(numero) ? Math.round(numero * 100) : NaN
+}
+
 function AuthCard({ titulo, subtitulo, children, footer }: { titulo?: string; subtitulo?: string; children: React.ReactNode; footer?: React.ReactNode }) {
  return (
   <div className="auth-page">
@@ -217,8 +240,27 @@ export function Metas() {
  const {estado,adicionarMeta,atualizarMeta,excluirMeta}=useFinanceiro()
  const [aberta,setAberta]=useState(false);const [editando,setEditando]=useState<MetaFinanceira|null>(null);const [nome,setNome]=useState('');const [alvo,setAlvo]=useState('');const [guardado,setGuardado]=useState('0');const [prazo,setPrazo]=useState('');const [icone,setIcone]=useState('🎯');const [erro,setErro]=useState('')
  function abrir(meta?:MetaFinanceira){setEditando(meta??null);setNome(meta?.nome??'');setAlvo(meta?(meta.valorAlvoCentavos/100).toFixed(2):'');setGuardado(meta?(meta.valorGuardadoCentavos/100).toFixed(2):'0');setPrazo(meta?.prazo??'');setIcone(meta?.icone??'🎯');setErro('');setAberta(true)}
- function salvar(e:React.FormEvent){e.preventDefault();const dados={nome,valorAlvoCentavos:Math.round(Number(alvo.replace(',','.'))*100),valorGuardadoCentavos:Math.round(Number(guardado.replace(',','.'))*100),prazo,icone};const erros=validarMeta(dados);if(erros.length){setErro(erros[0]);return}if(editando)atualizarMeta({...dados,id:editando.id});else adicionarMeta({...dados,id:id()});setAberta(false)}
- function guardar(meta:MetaFinanceira){const raw=prompt('Quanto deseja guardar? (R$)');if(raw===null)return;const cents=Math.round(Number(raw.replace(',','.'))*100);if(cents>0)atualizarMeta(adicionarValorMeta(meta,cents));else alert('Informe um valor maior que zero.')}
+ function salvar(e:React.FormEvent){
+  e.preventDefault()
+  const valorAlvoCentavos=valorEmCentavos(alvo)
+  const valorGuardadoCentavos=valorEmCentavos(guardado)
+  if(!Number.isFinite(valorAlvoCentavos)||!Number.isFinite(valorGuardadoCentavos)){
+   setErro('Digite valores válidos. Use vírgula ou ponto para separar os centavos (ex.: 1500,50 ou 1500.50).')
+   return
+  }
+  const dados={nome,valorAlvoCentavos,valorGuardadoCentavos,prazo,icone}
+  const erros=validarMeta(dados)
+  if(erros.length){setErro(erros[0]);return}
+  if(editando)atualizarMeta({...dados,id:editando.id});else adicionarMeta({...dados,id:id()})
+  setAberta(false)
+}
+ function guardar(meta:MetaFinanceira){
+  const raw=prompt('Quanto deseja guardar? (R$)')
+  if(raw===null)return
+  const cents=valorEmCentavos(raw)
+  if(Number.isFinite(cents)&&cents>0)atualizarMeta(adicionarValorMeta(meta,cents))
+  else alert('Informe um valor válido maior que zero. Ex.: 50,00 ou 50.00.')
+}
  return <><PageTitle title="Metas financeiras" description="Defina objetivos e acompanhe cada conquista." action={<button className="btn-primary" onClick={()=>abrir()}>＋ Nova meta</button>}/>{estado.metas.length?<div className="goal-grid">{estado.metas.map(m=><MetaCard key={m.id} meta={m} onAdd={guardar} onEdit={abrir} onDelete={x=>{if(confirm('Excluir esta meta?'))excluirMeta(x)}}/>)}</div>:<section className="panel"><EstadoLista estado="vazio" mensagem="Crie sua primeira meta financeira e acompanhe seu progresso."/></section>}{aberta&&<Modal titulo={editando?'Editar meta':'Criar nova meta'} onClose={()=>setAberta(false)}><form onSubmit={salvar}><label>Nome da meta<input value={nome} onChange={e=>setNome(e.target.value)} required minLength={3}/></label><div className="form-two"><label>Valor desejado (R$)<input value={alvo} onChange={e=>setAlvo(e.target.value)} required inputMode="decimal"/></label><label>Já guardado (R$)<input value={guardado} onChange={e=>setGuardado(e.target.value)} inputMode="decimal"/></label></div><label>Prazo (opcional)<input type="date" value={prazo} onChange={e=>setPrazo(e.target.value)}/></label><label>Ícone<select value={icone} onChange={e=>setIcone(e.target.value)}><option>🎯</option><option>🏡</option><option>🚗</option><option>✈️</option><option>🎓</option><option>💰</option></select></label>{erro&&<p className="field-error">{erro}</p>}<div className="modal-actions"><button type="button" className="btn-secondary" onClick={()=>setAberta(false)}>Cancelar</button><button className="btn-primary">Salvar meta</button></div></form></Modal>}</>
 }
 export function Graficos() {
