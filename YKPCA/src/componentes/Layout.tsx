@@ -29,7 +29,7 @@ export function Layout() {
       <div className="sidebar-bottom"><span>🐷</span><b>Seu dinheiro, no controle.</b><p>Pequenos passos constroem grandes conquistas.</p></div>
       <small className="side-footer">MEUDINHEIRO · 2026</small>
     </aside>
-    <main className="main"><header className="topbar"><button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-label="Abrir menu">☰</button><div><span className="eyebrow">CONTROLE FINANCEIRO PESSOAL</span><h1>{navLinks.find(l=>l.to===location.pathname)?.label ?? 'MeuDinheiro'}</h1></div><span className="today">{new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</span></header><Outlet/><footer className="main-footer">Feito para ajudar você a cuidar melhor do seu dinheiro. <span>MeuDinheiro © 2026</span></footer></main>
+    <main className="main"><header className="topbar"><button className="mobile-menu" onClick={()=>setMenu(!menu)} aria-label="Abrir menu">☰</button><div className="topbar-brand"><span className="eyebrow">MEUDINHEIRO</span><h1>Seu espaço financeiro</h1></div><span className="today">{new Date().toLocaleDateString('pt-BR',{day:'2-digit',month:'long',year:'numeric'})}</span></header><Outlet/><footer className="main-footer">Feito para ajudar você a cuidar melhor do seu dinheiro. <span>MeuDinheiro © 2026</span></footer></main>
   </div>
 }
 export function PageTitle({title,description,action}:{title:string;description:string;action?:ReactNode}) {
